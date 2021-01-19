@@ -38,13 +38,13 @@ def CheckGradient(f, x, h=1e-4, max_reldiff=1e-4):
       # Only print the first error.
       with warnings.catch_warnings():
         warnings.simplefilter('ignore', np.ComplexWarning)  # Ignore complex warning.
-        print utils.Highlight('Gradient check failed.', utils.RED, bold=True)
-        print 'First gradient error found at index %s' % str(ix)
-        print 'Your gradient: %f \t Numerical gradient: %f' % (grad[ix], numgrad)
+        print(utils.Highlight('Gradient check failed.', utils.RED, bold=True))
+        print('First gradient error found at index %s' % str(ix))
+        print('Your gradient: %f \t Numerical gradient: %f' % (grad[ix], numgrad))
       passed = False
     it.iternext()  # Step to next dimension.
   if passed:
-    print utils.Highlight('Gradient check passed!', utils.GREEN, bold=True)
+    print(utils.Highlight('Gradient check passed!', utils.GREEN, bold=True))
   return numerical_grad
 
 
@@ -96,11 +96,11 @@ def Cost(parameters,
   num_traits = Q.shape[1]
   if specified_time is None:
     t = parameters[-1]
-    num_parameters_i = (np.size(parameters) - 1) / num_species
+    num_parameters_i = int((np.size(parameters) - 1) / num_species)
     grad_all = np.zeros(np.size(parameters))
   else:
     t = specified_time
-    num_parameters_i = np.size(parameters) / num_species
+    num_parameters_i = int(np.size(parameters) / num_species)
     grad_all = np.zeros(np.size(parameters))
 
   # Reshape adjacency matrix to make sure.
@@ -249,7 +249,7 @@ def UnflattenParameters(parameters, A, num_species):
   a = A.astype(bool).flatten()
   K_all = np.zeros((nstates, nstates, num_species))
   num_nodes = A.shape[0]
-  num_parameters = parameters.shape[0] / num_species
+  num_parameters = int(parameters.shape[0] / num_species)
   for s in range(num_species):
     matrix_parameters = np.zeros(nstates ** 2)
     matrix_parameters[a] = parameters[s * num_parameters:(s + 1) * num_parameters]
@@ -376,8 +376,8 @@ def Optimize(Y_desired, A, X_init, Q, max_rate,
       error = np.sum(np.max(Y_desired - Y)) / np.sum(Y_desired)
     else:
       error = np.sum(np.abs(Y_desired - Y)) / (np.sum(Y_desired) * 2.)
-    print '\nError (at time %.2f): %.3f%%' % (optimal_t, error * 100.)
-    print 'Final cost:', ret.fun
+    print('\nError (at time %.2f): %.3f%%' % (optimal_t, error * 100.))
+    print('Final cost:', ret.fun)
 
   # Return transition matrices (3D matrix for all species)
   return K, optimal_t, final_parameters
@@ -399,16 +399,16 @@ if __name__ == '__main__':
   Y_desired = X_final.dot(Q)
   A = g.AdjacencyMatrix()
 
-  print 'Checking gradients...'
+  print( 'Checking gradients...')
   _, _, p = Optimize(Y_desired, A, X_init, Q, max_rate, verify_gradients=True, verbose=True)
-  print 'Trying warm-starting...'
+  print( 'Trying warm-starting...')
   Optimize(Y_desired, A, X_init, Q, max_rate, warm_start_parameters=p, verbose=True)
 
-  print 'Trying different number of robots...'
+  print( 'Trying different number of robots...')
   X_init = X_init.astype(np.float) * 10.
   Y_desired = Y_desired.astype(np.float) * 10.
   _, _, p = Optimize(Y_desired, A, X_init, Q, max_rate, verbose=True)
 
-  print 'Trying different rate...'
+  print( 'Trying different rate...')
   max_rate = 4.
   _, _, p = Optimize(Y_desired, A, X_init, Q, max_rate, verbose=True)

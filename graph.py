@@ -19,7 +19,7 @@ class Graph(object):
   def Plot(self, Y, ax=None):
     # Y: MxU matrix.
     # Returns: fig
-    return nxmod.DrawCircular(Y, self._graph, linewidths=3, ax=ax)
+    return nxmod.DrawCircular(Y, self._graph, ax=ax)
 
   def CreateRobotDistribution(self, num_species, num_robot_per_species, site_restrict=None):
     if site_restrict is None:

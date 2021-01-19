@@ -26,19 +26,12 @@ def _Draw(Gtraits, G, pos=None, ax=None, hold=None, **kwds):
     else:
       ax = cf.gca()
 
-  b = plt.ishold()
-  h = kwds.pop('hold', None)
-  if h is not None:
-    plt.hold(h)
   try:
-    plt.hold(h)
     _DrawGraph(Gtraits, G, pos=pos, ax=ax, **kwds)
     ax.set_axis_off()
     plt.draw_if_interactive()
   except:
-    plt.hold(b)
     raise
-  plt.hold(b)
   return cf
 
 
@@ -70,7 +63,6 @@ def _DrawNodes(G, pos, nodelist=None, node_size=300, node_index=0, node_color='r
   except ValueError:
     raise nx.NetworkXError('Bad value in node positions.')
 
-  ax.hold(True)
   for i in range(xy.shape[0]):
     x_pos = xy[i, 0]
     y_pos = xy[i, 1]
@@ -96,7 +88,7 @@ def _DrawNodes(G, pos, nodelist=None, node_size=300, node_index=0, node_color='r
     ax.add_patch(node_collection)
 
     if node_index == 0:
-      degrees = (np.linspace(0.0, 360.0, 20.0) / 180.0 * np.pi).tolist()
+      degrees = (np.linspace(0.0, 360.0, 20) / 180 * np.pi).tolist()
       verts = []
       codes = []
       for j, d in enumerate(degrees):

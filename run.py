@@ -19,15 +19,15 @@ num_traits = 4
 num_species = 4
 robots_per_species = 200
 max_rate = 2.
-num_simulations = 10
-num_simulations_rhc = 10
-rhc_steps = 10
+num_simulations = 2
+num_simulations_rhc = 2
+rhc_steps = 2
 
 g = graph.Graph(num_nodes)
 
-X_init = g.CreateRobotDistribution(num_species, robots_per_species, site_restrict=range(0, num_nodes / 2))
+X_init = g.CreateRobotDistribution(num_species, robots_per_species, site_restrict=range(0, int(num_nodes / 2)))
 Q = trait_matrix.CreateRandomQ(num_species, num_traits)
-X_final = g.CreateRobotDistribution(num_species, robots_per_species, site_restrict=range(num_nodes / 2, num_nodes))
+X_final = g.CreateRobotDistribution(num_species, robots_per_species, site_restrict=range(int(num_nodes / 2), num_nodes))
 Y_desired = X_final.dot(Q)
 A = g.AdjacencyMatrix()
 
@@ -93,7 +93,13 @@ std_error_rhc = np.std(error_rhc, axis=0)
 
 fig = plt.figure(figsize=(8, 8))
 ax1 = plt.subplot2grid((2, 2), (0, 0))
+ax1.set_xlim = [-0, 100]
+ax1.set_ylim = [0, 100]
+
 ax2 = plt.subplot2grid((2, 2), (0, 1))
+ax2.set_xlim = [-25, 25]
+ax2.set_ylim = [-25, 25]
+
 ax3 = plt.subplot2grid((2, 2), (1, 0), colspan=2)
 
 g.Plot(X_init.dot(Q), ax=ax1)
