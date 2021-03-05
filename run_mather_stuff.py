@@ -14,10 +14,10 @@ import simulation
 import trait_matrix
 import utils
 
-num_nodes = 2
-num_traits = 2
-num_species = 2
-robots_per_species = 10
+num_nodes = 3
+num_traits = 1
+num_species = 1
+robots_per_species = 30
 max_rate = 2.
 num_simulations = 2
 num_simulations_rhc = 2
@@ -25,16 +25,14 @@ rhc_steps = 2
 
 g = graph.Graph(num_nodes, True)
 
-X_init = g.CreateRobotDistributionWithVar(num_species, robots_per_species, site_restrict=range(0, int(num_nodes / 2)))
+X_init = 
+X_final = 
 Q = trait_matrix.CreateRandomQ(num_species, num_traits)
-X_final = g.CreateRobotDistributionWithVar(num_species, robots_per_species, site_restrict=range(int(num_nodes / 2), num_nodes))
 Y_desired = X_final.dot(Q)
 A = g.AdjacencyMatrix()
 
-sys.stdout.write('Optimizing...\t')
-sys.stdout.flush()
-K, t, _ = optimization.Optimize(Y_desired, A, X_init, Q, max_rate, allow_trait_overflow=True)
-sys.stdout.write(utils.Highlight('[DONE]\n', utils.GREEN, bold=True))
+K = # BUILD MATHER K MATRIX for 3x3 case
+
 
 sys.stdout.write('Integrating...\t')
 sys.stdout.flush()
