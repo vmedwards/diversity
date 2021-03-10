@@ -62,7 +62,7 @@ def Print(x, f, accepted):
 # Computes V * exp_wt * U.
 # By construction the exponential of our matrices are always real-valued.
 def Expm(V, exp_wt, U):
-  return np.real(V.dot(np.diag(exp_wt)).dot(U))
+    return np.real(V.dot(np.diag(exp_wt)).dot(U))
 
 
 # Computes the mixture of costs.
@@ -83,7 +83,7 @@ def Cost(parameters,
          A, X_init, Q,
          alpha=1.0, specified_time=None,
          beta=5.0, nu=1.0,
-         mode=ABSOLUTE_AT_LEAST, margin=None):
+         mode=QUADRATIC_EXACT, margin=None):
   # Sanity checks.
   assert alpha >= 0.0 and beta >= 0.0
   assert (alpha == 0.0) == (specified_time is not None)
@@ -92,22 +92,16 @@ def Cost(parameters,
 
   # Prepare variable depending on whether t part of the parameters.
   num_nodes = A.shape[0]
-  dim = int((1/2) * num_nodes * (num_nodes + 3))
-      
   num_species = X_init.shape[1]
   num_traits = Q.shape[1]
   if specified_time is None:
     t = parameters[-1]
     num_parameters_i = int((np.size(parameters) - 1) / num_species)
-    #grad_all = np.zeros(np.size(parameters))
+    grad_all = np.zeros(np.size(parameters))
   else:
     t = specified_time
-    print(parameters)
     num_parameters_i = int(np.size(parameters) / num_species)
-    #grad_all = np.zeros(np.size(parameters))
-
-  #XXX: TEMPORARY NOT GENERALIZED FIX?
-  grad_all = np.zeros((dim * dim + 1,))
+    grad_all = np.zeros(np.size(parameters))
 
   # Reshape adjacency matrix to make sure.
   Adj = A.astype(float).reshape((num_nodes, num_nodes))
@@ -124,44 +118,29 @@ def Cost(parameters,
   x0s = []                    # Avoids reshaping.
   qs = []                     # Avoids reshaping.
   xts = []                    # Keeps x_s(t).
-  inside_norm = np.zeros((dim, num_traits))  # Will hold the value prior to using the norm.
+  inside_norm = np.zeros((num_nodes, num_traits))  # Will hold the value prior to using the norm.
   for s in range(num_species):
-    x0 = X_init[:, s].reshape((dim, 1))
+    x0 = X_init[:, s].reshape((num_nodes, 1))
     q = Q[s, :].reshape((1, num_traits))
     x0s.append(x0)
     qs.append(q)
-
-    # Get the parameters! 
     k_ij = parameters[s * num_parameters_i:(s + 1) * num_parameters_i]
-
-
-    # Create K from individual k_{ij}. (XXX: Dimension changes when we incorporate the variance moment terms)
-    # XXX: We will start with the 2x2 case because I know the closed form matrix (Need to think about the general case)
-    K_mean = np.zeros(Adj_flatten.shape)
-    K_mean[Adj_flatten] = k_ij
-    K_mean = K_mean.reshape((num_nodes, num_nodes))
-    np.fill_diagonal(K_mean, -np.sum(K_mean, axis=0))
-    dim_K = int((1/2) * num_nodes * (num_nodes + 3))
     
-    K = np.zeros((dim_K,dim_K))
-    K[0:num_nodes, 0:num_nodes] = K_mean
-
-    K_var = np.matrix([[k_ij[0], k_ij[1], -2 * k_ij[0], 0, 2 * k_ij[1]], [k_ij[0], k_ij[1], 0, -2 * k_ij[1], 2 * k_ij[0]], [-k_ij[0], -k_ij[1], k_ij[0], k_ij[1], -k_ij[1] - k_ij[0]]])
-    
-    K[num_nodes:,:] = K_var
-    #XXX: THIS IS A SHORT CUT AND MAY NOT BE RIGHT!!
-    K_flat = K.flatten().astype(bool)
-
+    # Create K from individual k_{ij}.
+    # XXX: FIRST DO OPTIMIZATION OF ALPHAS with no feedback
+    # XXX: DO OPTIMIZATION WITH FEEDBACK (BOTH ALPHA AND BETA) --> Think of this with 2 K mats
+    K = np.zeros(Adj_flatten.shape)
+    K[Adj_flatten] = k_ij
+    K = K.reshape((num_nodes, num_nodes))
+    np.fill_diagonal(K, -np.sum(K, axis=0))
     # Store K.
     Ks.append(K)
-
+    
     # Perform eigen-decomposition to compute matrix exponential.
     w, V = scipy.linalg.eig(K, right=True)
     U = scipy.linalg.inv(V)
     wt = w * t
     exp_wt = np.exp(wt)
-
-    #XXX: SHAPE MIS MATCH: The problem here is that x0 is still 2 entries not 5 for the variance terms between states
     xt = Expm(V, exp_wt, U).dot(x0)
     inside_norm += xt.dot(q)
     # Store the transpose of these matrices for later use.
@@ -178,6 +157,11 @@ def Cost(parameters,
     x_matrix.append(X)
   inside_norm -= Y_desired
 
+  # XXX: WE NEED TO UPDATE THE COST FUNCTION TO INCLUDE THE VARIANCE!!
+  # XXX: GET A GENERALIZED GAMMA FOR THE MATRIX?
+  # XXX: THIS WILL ALSO REQUIRE UPDATIN THE GRADIENT TO INCLUDE THE VARIANCE TERM! (Adding it to optimization)
+
+  
   # Compute the final cost value depending on mode.
   derivative_outer_norm = None  # Holds the derivative of inside_norm (except the multiplication by (x0 * q)^T).
   if mode == ABSOLUTE_AT_LEAST:
@@ -203,11 +187,8 @@ def Cost(parameters,
     derivative_outer_norm = 2.0 * inside_norm
   value += alpha * (t ** 2)
 
-  """
   # Calculate gradient w.r.t. the transition matrix for each species
-  print("BEFORE LOOP")
   for s in range(num_species):
-    print(s)
     # Build gradient w.r.t. inside_norm of cost.
     top_grad = np.dot(derivative_outer_norm, np.dot(x0s[s], qs[s]).T)
     # Build gradient w.r.t. Exp(K * t).
@@ -216,16 +197,12 @@ def Cost(parameters,
     bottom_grad = middle_grad * t
     # Finally, propagate gradient to individual k_ij.
     grad = bottom_grad - np.diag(bottom_grad)
-    grad = grad.flatten()[K_flat]  # Reshape.
-    ## XXX: THERE IS A SHAPE ISSUE HERE 
-    grad_all[s*17:(s+1)*17] += np.array(np.real(grad))
+    grad = grad.flatten()[Adj_flatten]  # Reshape.
+    grad_all[s*num_parameters_i:(s+1)*num_parameters_i] += np.array(np.real(grad))
     # Build gradient w.r.t. t (if desired)
     if specified_time is None:
       grad_all[-1] += np.real(np.sum(Ks[s] * middle_grad))
-    print("STILL IN LOOP")
-    
-  print("AFTER LOOP")
-  print("HEREHERHE")
+
   # Gradient of alpha * t^2 w.r.t. t
   if specified_time is None:
     grad_all[-1] += 2.0 * t * alpha
@@ -246,14 +223,12 @@ def Cost(parameters,
 
       # Compute gradient on the first part of the cost: e^{Kt} x0 (we use the same chain rule as before).
       top_grad = 2.0 * beta * np.dot(inside_norm, x0s[s].T)
-      store_inner_product = eigenvector[s].dot(top_grad).dot(eigenvectors_inverse[s])  # Store to re-use.
+      store_inner_product = eigenvectors[s].dot(top_grad).dot(eigenvectors_inverse[s])  # Store to re-use.
       middle_grad = eigenvectors_inverse[s].dot(store_inner_product * x_matrix[s]).dot(eigenvectors[s])
       bottom_grad = middle_grad * t
       grad = bottom_grad - np.diag(bottom_grad)
-      grad = grad.flatten()[K_flat]  # Reshape.
-      
-      # XXX: SAME SHAPE ISSUE AS ABOVE
-      grad_all[s * 17:(s + 1) * 17] += np.array(np.real(grad))
+      grad = grad.flatten()[Adj_flatten]  # Reshape.
+      grad_all[s * num_parameters_i:(s + 1) * num_parameters_i] += np.array(np.real(grad))
       if specified_time is None:
         grad_all[-1] += np.real(np.sum(Ks[s] * middle_grad))
 
@@ -267,16 +242,11 @@ def Cost(parameters,
       middle_grad = -eigenvectors_inverse[s].dot(store_inner_product * X).dot(eigenvectors[s])
       bottom_grad = middle_grad * (t + nu)
       grad = bottom_grad - np.diag(bottom_grad)
-      grad = grad.flatten()[K_flat]  # Reshape.
-      # XXX: AGAIN SAME SHAPE ISSUE
-      grad_all[s * 17:(s + 1) * 17] += np.array(np.real(grad))
+      grad = grad.flatten()[Adj_flatten]  # Reshape.
+      grad_all[s * num_parameters_i:(s + 1) * num_parameters_i] += np.array(np.real(grad))
       if specified_time is None:
         grad_all[-1] += np.real(np.sum(Ks[s] * middle_grad))
 
-  print("HEREHEHREHRE")
-  print(value, grad_all)
-  """
-  print(value, grad_all)
   return [value, grad_all]
 
 
